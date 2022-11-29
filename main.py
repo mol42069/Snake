@@ -13,6 +13,8 @@ dark_grey = (30, 30, 30)
 cur_dir = 0
 prev_dir = 0
 keyup = True
+display = py.display.set_mode(screen_size)                                  # we start the pygame screen
+game_o = False
 
 
 # ------------------------------------------------------ snake ------------------------------------------------------- #
@@ -48,16 +50,20 @@ class Snake:
         self.snek.append((half_x, half_y + 1))
         self.snek.append((half_x, half_y + 2))
 
-    def draw(self, display):
+    def draw(self):
+        global display
         display.fill(dark_grey)
         for body in self.snek:
             display.blit(self.snek_img, (convert_coord(body[0], body[1])))
         display.blit(self.snek_head_img, (convert_coord(self.snek_head[0], self.snek_head[1])))
-        display.blit(self.food_img, (convert_coord(self.food[0], self.food[1])))
+        try:
+            display.blit(self.food_img, (convert_coord(self.food[0], self.food[1])))
+        except TypeError:
+            pass
         return display
 
     def move(self, direction):
-        global keyup
+        global keyup, game_o
         boolean = False
         if direction != 4:
             self.prev_dir = direction
@@ -80,18 +86,13 @@ class Snake:
         else:
             self.move(self.prev_dir)
 
-        # TODO: MAKE AN REAL GAME OVER SCREEN INSTEAD OF ONLY CLOSING PROGRAM
-
         if self.snek_head in self.snek:
-            print("GAME OVER")
-            sys.exit(0)
+            game_o = True
         if self.snek_head[0] < 0 or self.snek_head[0] > x_lines:
-            print("GAME OVER")
-            sys.exit(0)
+            game_o = True
         if self.snek_head[1] < 0 or self.snek_head[1] > y_lines:
-            print("GAME OVER")
-            sys.exit(0)
-            
+            game_o = True
+
         if self.eat():
             self.food = self.gen_food()
         elif boolean:
@@ -107,14 +108,48 @@ class Snake:
             return False
 
     def gen_food(self):
-        x = rnd.randint(0, x_lines - 1)
-        y = rnd.randint(0, y_lines - 1)
+        x = rnd.randint(1, x_lines - 1)
+        y = rnd.randint(1, y_lines - 1)
         nf = (x, y)
         if nf not in self.snek:
+            print(nf)
             return nf
         else:
             self.gen_food()
 
+
+def game_over():
+    global display
+    game_over_img = py.image.load('./images/game_over_img.png')
+    game_over_quit_img = py.image.load('./images/game_over_quit_img.png')
+    game_over_try_again_img = py.image.load('./images/game_over_try_again_img.png')
+    x_h = (screen_size[0] / 2) - 75
+    y_h = (screen_size[1] / 2) - 30
+    display.blit(game_over_img, (x_h, y_h))
+    x_h = (screen_size[0] / 2) - 65
+    y_h = (screen_size[1] / 2) + 30
+    display.blit(game_over_try_again_img, (x_h, y_h))
+    ta = game_over_try_again_img.get_rect()
+    ta.topleft = (x_h, y_h)
+    x_h = (screen_size[0] / 2) + 15
+    y_h = (screen_size[1] / 2) + 30
+    display.blit(game_over_quit_img, (x_h, y_h))
+    g_quit = game_over_quit_img.get_rect()
+    g_quit.topleft = (x_h, y_h)
+    return ta, g_quit
+
+
+def click(rec_one, rec_two, pos):
+    rec_one_pressed = False
+    rec_two_pressed = False
+    if rec_one.collidepoint(pos):
+        if py.mouse.get_pressed()[0] == 1:                             # rec_one_pressed if mouse pressed on rec_one
+            rec_one_pressed = True                                     # Ture = u clicked it else False
+    elif rec_two.collidepoint(pos):
+        if py.mouse.get_pressed()[0] == 1:                             # same as for rec_one
+            rec_two_pressed = True
+
+    return rec_one_pressed, rec_two_pressed
 
 # ------------------------------------------------------ input ------------------------------------------------------- #
 
@@ -161,16 +196,27 @@ def rm_keys(event):                                                     # here w
 
 
 def main():
-    global start, screen_size, cur_dir, keyup
-    display = py.display.set_mode(screen_size)                           # we start the pygame screen
+    global start, screen_size, cur_dir, keyup, display, game_o
     display.fill(dark_grey)
     running = True
     snake = Snake()
+    game_o = False
+    cur_dir = 0
     while running:
+        pos = py.mouse.get_pos()
         py.display.flip()                                               # we update the screen every time we loop
         snake.move(cur_dir)
-        display = snake.draw(display)
-        py.time.delay(100)
+        if game_o:
+            try_again, game_quit = game_over()
+            try_again_c, game_quit_c = click(try_again, game_quit, pos)
+            if try_again_c:
+                main()
+            elif game_quit_c:
+                py.time.delay(100)
+                sys.exit(0)
+        else:
+            snake.draw()
+        py.time.delay(80)
 
         for event in py.event.get():                                    # we get the events
             if event.type == py.KEYDOWN:                                # if the event is a key being pressed
